@@ -63,15 +63,28 @@ mydata <- as.vector(as.matrix(df[,-1])); df <- data.frame(df[,1], mydata, myfact
 
 ## **Question 1** (20 Points): 
 1. Please put the Mean Petal Length into mean_petal_length variable
-+ *mean_petal_length <- mean(iris$'Petal.Length')*
++ *mean_petal_length <- mean(iris$'Petal.Length')   3.758*
   2. Please put the Max Petal Length max_petal_length variable
-+ *max_petal_length <- max(iris$'Petal.Length')*
++ *max_petal_length <- max(iris$'Petal.Length')    6.9*
   3. How many vectors (columns) are there in Iris and what are there names?
 + *ncol(iris) : 5 columns*
   *names(iris): "Sepal.Length" "Sepal.Width"  "Petal.Length" "Petal.Width"  "Species".* 
   
-# Question 2
+```{r}
+mean_petal_length <- mean(iris$'Petal.Length')
+mean_petal_length
 
+max_petal_length <- max(iris$'Petal.Length')
+max_petal_length
+
+ncol(iris)
+
+names(iris)
+```
+
+
+
+# Question 2
 ### Question 2 Background
 
 ### Question 2 Background: Examples with *ggplot2*
@@ -188,170 +201,26 @@ renderPlotly({
 Make a similar shiny app, based on 3A with **diamonds** modelset allowing changing of axis.
 
 ```{r echo = FALSE}
+diamonds <- diamonds
 inputPanel(
-  selectInput("var1", label = "Choose Xaxis:", choices = c("carat","cut"), selected = "cut"),
-  selectInput("var2",  label = "Choose Yaxis:", choices = c("price","clarity"), selected = "clarity")
+  selectInput("variable1", label = "Choose Xaxis:", choices = c("carat","cut"), selected = "cut"),
+  selectInput("variable2",  label = "Choose Yaxis:", choices = c("price","color"), selected = "color")
 )
 ```
 
 
 ```{r  echo = FALSE}
 library(plotly)
+
 renderPlotly({
-  x_axis <- input$var1
-  y_axis <- input$var2
-   a<-ggplot(diamonds, aes_string(x = x_axis, y = y_axis, color=color)) + geom_point() + facet_wrap(~color) + ggtitle("Plot of carat vs. price")
+  x_axis <- input$variable1
+  y_axis <- input$variable2
+  clarity <- "clarity"
+   a<-ggplot(diamonds, aes_string(x = x_axis, y = y_axis, color=clarity)) + geom_point() + facet_wrap(~clarity) + ggtitle("Plot of carat vs. price")
    ggplotly(a)
 }) 
 ```
 
-# Question 4
-### Question 4 Background Tables & Joins
-Lets Move to Tables!
-For this we will use Datatables, a library for making tables in HTML.  You may need to install.packages('DT'). We are going to use a set of gene expression values. The genes are listed using their Ensembl "gene_id", and we also wish to  change all of those. 
-
-We are going to use the join and dplyr libraries for this.  Joins are critical to informatics and we will do a special section on them.  For now, make sure you have the dplyr libraries install.packages('dplyr').  
-
-<a src="https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf"><button>Data Wrangling Cheatsheet</button></a>
-
-Essentially they merge two tables, and this is handy for conversions.
-
-
-```{r}
-rna_expression_tpms <- read.csv('data/cohort.tpms.csv.gz',header = TRUE, sep = ",",  quote = "\"", dec = ".", fill = TRUE, row.names = NULL)
-```
-
-This is a table of expression values.  Lets compare two.  First we need the column names
-
-```{r}
-colnames<-colnames(rna_expression_tpms)
-```
-
-Now Lets create another shiny app that is interactive
-### Example 4A Shiny App to compare TPMs from two samples
-
-```{r}
-colnames<-colnames(rna_expression_tpms)
-inputPanel(
-  selectInput("tpmvar1", label = "Choose Xaxis:", choices = colnames, selected = colnames[3]),
-  selectInput("tpmvar2",  label = "Choose Yaxis:", choices = colnames, selected = colnames[2])
-)
-```
-
-```{r example14}
-renderPlot({
-  x_axis <- input$tpmvar1
-  y_axis <- input$tpmvar2
-   ggplot(rna_expression_tpms, aes_string(x = x_axis, y = y_axis)) +scale_x_log10() + scale_y_log10() + scale_colour_gradient2()+ geom_point()
-}) 
-```
-
-### To the table! 
-We would like to search by gene name, we have another file for conversion
-
-```{r}
-gene_id2gene <- read.delim2('data/gene_id2gene.tsv.gz',header = TRUE, sep = "\t", row.names = NULL)
-```
-
-To bring these to a single file, we utilize dplyr
-
-```{r}
-library('dplyr')
-gene_rna_expression_tpms<-inner_join(gene_id2gene,rna_expression_tpms)
-```
-
-Now lets implement datatables the standard way:
-**https://blog.rstudio.com/2015/06/24/dt-an-r-interface-to-the-datatables-library/**
-  
-  
-<pre>
-library(DT)
-datatable(gene_rna_expression_tpms, options = list( 
-  searching = FALSE, 
-  pageLength = 5, 
-  lengthMenu = c(5, 10, 15, 20)
-))
-</pre>
-
-We get this warning.  
-**"It seems your data is too big for client-side DataTables. You may consider server-side processing: http://rstudio.github.io/DT/server.html"**
-This means that its sending the entire datatable over the internet to the viewer, and that's a lot of data being sent when we are only displaying a small portion.  Its possible using server-side version of DT to only send over what is needed to be displayed. This is described as the link suggests.
-fluidPage(title = 'Use the DT package in shiny',
-  h1('Gene Lookup'),
-  fluidRow(column(12, dataTableOutput('tble_a')))
-)
-
-### Example B. Serverside implementation
-
-```{r}
-library(shiny)
-library(DT)
-shinyApp(
-ui=
-  fluidPage(
-     fluidRow(
-        column(12,DT::dataTableOutput('tbl_b'))
-     )
-   ),
-
-
-server=
-  function(input, output, session) {
-  output$tbl_b <- DT::renderDataTable(gene_rna_expression_tpms,options = list( server = TRUE, 
-          searching = TRUE,
-          sortable = TRUE,
-          order = c(1, 'asc')
-        )
-  )
-  }
-)
-```
-
-
-### Smaller Table
-##### Lets say we wanted the variance. One approach would be through a table.
-I decide to create a new frame called 'mydt'.  I then add on a new column call meanTPM
-which is the mean from column 4 to the last column using colMeans
-
-```{r}
-mydt<-data.frame(gene_rna_expression_tpms$gene)
-mydt$meanTPM<-rowMeans(gene_rna_expression_tpms[,c(4:ncol(gene_rna_expression_tpms))], na.rm = FALSE, dims = 1);
-```
-
-
-### Example C.  Table of Mean
-
-Code is below, remember that we should NOT use tbl_b twice. 
-
-```{r}
-
-library(shiny)
-library(DT)
-shinyApp(
-ui=
-  fluidPage(
-     fluidRow(
-        DT::dataTableOutput('mydt')
-     )
-   ),
-
-
-server=
-  function(input, output, session) {
-  output$mydt <- DT::renderDataTable(mydt,options = list( server = TRUE, 
-          searching = TRUE,
-          sortable = TRUE
-        )
-  )
-  }
-)
-
-```
-
-## **Question 4** (20 Points): 
-Make the table above in Example 4B with median instead of mean, and don't reuse tbl_dt in code.  Don't use mydt either - it will confuse the server... You can use those variables once.
-
-Place it here
 
 
 
